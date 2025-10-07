@@ -68,7 +68,6 @@ class BottomControls extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildProgressBar(context, ref, scheme),
-              const SizedBox(height: 6),
               Row(
                 children: [
                   _buildButton(

@@ -7,11 +7,11 @@ import 'package:shonenx/features/anime/view/widgets/player/bottom_controls.dart'
 import 'package:shonenx/features/anime/view/widgets/player/center_controls.dart';
 import 'package:shonenx/features/anime/view/widgets/player/subtitle_overlay.dart';
 import 'package:shonenx/features/anime/view/widgets/player/top_controls.dart';
+import 'package:shonenx/features/anime/view_model/controls_overlay_provider.dart';
 import 'package:shonenx/features/anime/view_model/episode_stream_provider.dart';
 import 'package:shonenx/features/anime/view_model/player_provider.dart';
 
-// --- MAIN WIDGET ---
-class CloudstreamControls extends ConsumerStatefulWidget {
+class CloudstreamControls extends ConsumerWidget {
   final VoidCallback? onEpisodesPressed;
 
   const CloudstreamControls({
@@ -20,106 +20,112 @@ class CloudstreamControls extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<CloudstreamControls> createState() =>
-      _CloudstreamControlsState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controlsState = ref.watch(controlsOverlayProvider);
+    final controlsNotifier = ref.read(controlsOverlayProvider.notifier);
 
-class _CloudstreamControlsState extends ConsumerState<CloudstreamControls> {
-  // --- STATE VARIABLES ---
-  bool _areControlsVisible = true;
-  bool _isLocked = false;
-  Timer? _hideControlsTimer;
-  double? _draggedSliderValue;
-
-  // --- LIFECYCLE & TIMER LOGIC ---
-  @override
-  void initState() {
-    super.initState();
-    _resetHideTimer();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final midPoint = constraints.maxWidth / 2;
+        return GestureDetector(
+          onTap: controlsNotifier.showControls,
+          onDoubleTapDown: (details) {
+            controlsNotifier
+                .handleDoubleTap(details.localPosition.dx >= midPoint);
+          },
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildSkipIndicator(
+                isVisible: controlsState.skipState == -1,
+                isForward: false,
+              ),
+              _buildSkipIndicator(
+                isVisible: controlsState.skipState == 1,
+                isForward: true,
+              ),
+              AnimatedOpacity(
+                opacity: controlsState.areControlsVisible ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 300),
+                child: AbsorbPointer(
+                  absorbing: !controlsState.areControlsVisible,
+                  child: _buildControlsUI(context, ref),
+                ),
+              ),
+              Positioned(
+                bottom:
+                    controlsState.areControlsVisible && !controlsState.isLocked
+                        ? 150
+                        : 20,
+                left: 20,
+                right: 20,
+                child: const SubtitleOverlay(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
-  @override
-  void dispose() {
-    _hideControlsTimer?.cancel();
-    super.dispose();
-  }
-
-  void _resetHideTimer() {
-    _hideControlsTimer?.cancel();
-    if (_isLocked || !_areControlsVisible) return;
-
-    _hideControlsTimer = Timer(const Duration(seconds: 5), _hideControls);
-  }
-
-  void _hideControls() {
-    if (mounted) {
-      setState(() => _areControlsVisible = false);
-      _hideControlsTimer?.cancel();
-    }
-  }
-
-  void _showControls() {
-    if (mounted && !_areControlsVisible) {
-      setState(() => _areControlsVisible = true);
-      _resetHideTimer(); // Start the auto-hide timer after showing.
-    }
-  }
-
-  /// Toggles the screen lock.
-  void _toggleLock() {
-    setState(() {
-      _isLocked = !_isLocked;
-      _areControlsVisible = true;
-      _resetHideTimer();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _showControls,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          AnimatedOpacity(
-            opacity: _areControlsVisible ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 300),
-            child: AbsorbPointer(
-              absorbing: !_areControlsVisible,
-              child: _buildControlsUI(),
+  Widget _buildSkipIndicator({
+    required bool isVisible,
+    required bool isForward,
+  }) {
+    return AnimatedOpacity(
+      opacity: isVisible ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 200),
+      child: FractionallySizedBox(
+        alignment: isForward ? Alignment.centerRight : Alignment.centerLeft,
+        widthFactor: 0.4,
+        child: Container(
+          decoration: BoxDecoration(
+              gradient: LinearGradient(
+            colors: [Colors.black.withOpacity(isForward ? 1: 0), Colors.black.withOpacity(isForward ? 0 : 1), ],
+            stops: [0, 1],
+            begin: Alignment.centerRight,
+            end: Alignment.centerLeft,
+          )),
+          child: Center(
+            child: Icon(
+              isForward
+                  ? Iconsax.forward_10_seconds
+                  : Iconsax.backward_10_seconds,
+              size: 40,
+              color: Colors.white,
             ),
           ),
-          Positioned(
-            bottom: _areControlsVisible && !_isLocked ? 150 : 20,
-            left: 20,
-            right: 20,
-            child: const SubtitleOverlay(),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildControlsUI() {
+  Widget _buildControlsUI(BuildContext context, WidgetRef ref) {
+    final controlsNotifier = ref.read(controlsOverlayProvider.notifier);
+    final controlsState = ref.watch(controlsOverlayProvider);
+
     return GestureDetector(
-      onTap: _hideControls,
+      onTap: controlsNotifier.hideControls,
       child: Container(
         color: Colors.transparent,
-        child: _isLocked ? _buildLockMode() : _buildFullControls(),
+        child: controlsState.isLocked
+            ? _buildLockMode(context, ref)
+            : _buildFullControls(context, ref),
       ),
     );
   }
 
-  Widget _buildLockMode() {
+  Widget _buildLockMode(BuildContext context, WidgetRef ref) {
+    final controlsNotifier = ref.read(controlsOverlayProvider.notifier);
     return Center(
       child: GestureDetector(
-        onTap: _resetHideTimer,
+        onTap: controlsNotifier.resetHideTimer,
         child: IconButton(
           style: IconButton.styleFrom(
             backgroundColor: Colors.black54,
             padding: const EdgeInsets.all(16),
           ),
-          onPressed: _toggleLock,
+          onPressed: controlsNotifier.toggleLock,
           icon: const Icon(Icons.lock_open, size: 32, color: Colors.white),
           tooltip: 'Unlock',
         ),
@@ -127,7 +133,9 @@ class _CloudstreamControlsState extends ConsumerState<CloudstreamControls> {
     );
   }
 
-  Widget _buildFullControls() {
+  Widget _buildFullControls(BuildContext context, WidgetRef ref) {
+    final controlsState = ref.watch(controlsOverlayProvider);
+    final controlsNotifier = ref.read(controlsOverlayProvider.notifier);
     final playerNotifier = ref.read(playerStateProvider.notifier);
 
     return Stack(
@@ -135,22 +143,23 @@ class _CloudstreamControlsState extends ConsumerState<CloudstreamControls> {
         /// Center Controls
         Positioned.fill(
           child: Center(
-            child: CenterControls(onInteraction: _resetHideTimer),
+            child:
+                CenterControls(onInteraction: controlsNotifier.resetHideTimer),
           ),
         ),
 
         /// Top Controls
         AnimatedContainer(
           duration: const Duration(milliseconds: 300),
-          transform:
-              Matrix4.translationValues(0, _areControlsVisible ? 0 : -100, 0),
+          transform: Matrix4.translationValues(
+              0, controlsState.areControlsVisible ? 0 : -100, 0),
           child: Align(
             alignment: Alignment.topCenter,
             child: TopControls(
-              onInteraction: _resetHideTimer,
-              onEpisodesPressed: widget.onEpisodesPressed,
-              onSettingsPressed: _showSettingsSheet,
-              onQualityPressed: _showQualitySheet,
+              onInteraction: controlsNotifier.resetHideTimer,
+              onEpisodesPressed: onEpisodesPressed,
+              onSettingsPressed: () => _showSettingsSheet(context, ref),
+              onQualityPressed: () => _showQualitySheet(context, ref),
             ),
           ),
         ),
@@ -158,29 +167,21 @@ class _CloudstreamControlsState extends ConsumerState<CloudstreamControls> {
         /// Bottom Controls
         AnimatedContainer(
           duration: const Duration(milliseconds: 300),
-          transform:
-              Matrix4.translationValues(0, _areControlsVisible ? 0 : 150, 0),
+          transform: Matrix4.translationValues(
+              0, controlsState.areControlsVisible ? 0 : 150, 0),
           child: Align(
             alignment: Alignment.bottomCenter,
             child: BottomControls(
-              onInteraction: _resetHideTimer,
-              sliderValue: _draggedSliderValue,
-              onSliderChangeStart: (val) {
-                _hideControlsTimer?.cancel();
-                setState(() => _draggedSliderValue = val);
-              },
+              onInteraction: controlsNotifier.resetHideTimer,
+              sliderValue: controlsState.draggedSliderValue,
+              onSliderChangeStart: controlsNotifier.onSliderChangeStart,
               onForwardPressed: () => playerNotifier.forward(85),
-              onSliderChanged: (val) =>
-                  setState(() => _draggedSliderValue = val),
-              onSliderChangeEnd: (val) {
-                playerNotifier.seek(Duration(milliseconds: val.round()));
-                setState(() => _draggedSliderValue = null);
-                _resetHideTimer();
-              },
-              onLockPressed: _toggleLock,
-              onSourcePressed: _showSourceSheet,
-              onSubtitlePressed: _showSubtitleSheet,
-              onServerPressed: _showServerSheet,
+              onSliderChanged: controlsNotifier.onSliderChanged,
+              onSliderChangeEnd: controlsNotifier.onSliderChangeEnd,
+              onLockPressed: controlsNotifier.toggleLock,
+              onSourcePressed: () => _showSourceSheet(context, ref),
+              onSubtitlePressed: () => _showSubtitleSheet(context, ref),
+              onServerPressed: () => _showServerSheet(context, ref),
             ),
           ),
         ),
@@ -188,27 +189,34 @@ class _CloudstreamControlsState extends ConsumerState<CloudstreamControls> {
     );
   }
 
-  Future<void> _showPlayerModalSheet({required WidgetBuilder builder}) async {
-    _hideControlsTimer?.cancel();
+  Future<void> _showPlayerModalSheet(BuildContext context, WidgetRef ref,
+      {required WidgetBuilder builder}) async {
+    final controlsNotifier = ref.read(controlsOverlayProvider.notifier);
+    controlsNotifier.cancelHideTimer();
     await showModalBottomSheet(
       context: context,
       builder: builder,
       backgroundColor: Theme.of(context).colorScheme.surface.withAlpha(240),
       isScrollControlled: true,
     );
-    if (mounted) _resetHideTimer();
+    controlsNotifier.resetHideTimer();
   }
 
-  void _showSettingsSheet() => _showPlayerModalSheet(
+  void _showSettingsSheet(BuildContext context, WidgetRef ref) =>
+      _showPlayerModalSheet(
+        context,
+        ref,
         builder: (context) => _SettingsSheetContent(
           onDismiss: () => Navigator.pop(context),
         ),
       );
 
-  void _showQualitySheet() {
+  void _showQualitySheet(BuildContext context, WidgetRef ref) {
     final episodeData = ref.read(episodeDataProvider);
     final episodeNotifier = ref.read(episodeDataProvider.notifier);
     _showPlayerModalSheet(
+      context,
+      ref,
       builder: (context) => _GenericSelectionSheet<Map<String, dynamic>>(
         title: 'Quality',
         items: episodeData.qualityOptions,
@@ -222,10 +230,12 @@ class _CloudstreamControlsState extends ConsumerState<CloudstreamControls> {
     );
   }
 
-  void _showSourceSheet() {
+  void _showSourceSheet(BuildContext context, WidgetRef ref) {
     final episodeData = ref.read(episodeDataProvider);
     final episodeNotifier = ref.read(episodeDataProvider.notifier);
     _showPlayerModalSheet(
+      context,
+      ref,
       builder: (context) => _GenericSelectionSheet<Source>(
         title: 'Source',
         items: episodeData.sources,
@@ -239,11 +249,13 @@ class _CloudstreamControlsState extends ConsumerState<CloudstreamControls> {
     );
   }
 
-  void _showServerSheet() {
+  void _showServerSheet(BuildContext context, WidgetRef ref) {
     final episodeData = ref.read(episodeDataProvider);
     final episodeNotifier = ref.read(episodeDataProvider.notifier);
     if (episodeData.selectedServer == null) return;
     _showPlayerModalSheet(
+      context,
+      ref,
       builder: (context) => _GenericSelectionSheet<String>(
         title: 'Server',
         items: episodeData.servers,
@@ -257,10 +269,12 @@ class _CloudstreamControlsState extends ConsumerState<CloudstreamControls> {
     );
   }
 
-  void _showSubtitleSheet() {
+  void _showSubtitleSheet(BuildContext context, WidgetRef ref) {
     final episodeData = ref.read(episodeDataProvider);
     final episodeNotifier = ref.read(episodeDataProvider.notifier);
     _showPlayerModalSheet(
+      context,
+      ref,
       builder: (context) => _GenericSelectionSheet<Subtitle>(
         title: 'Subtitle',
         items: episodeData.subtitles,
