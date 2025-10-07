@@ -45,7 +45,6 @@ class ControlsOverlayNotifier extends StateNotifier<ControlsOverlayState> {
   Timer? _hideSkipIndicatorTimer;
 
   void showControls() {
-    if (state.isLocked) return;
     if (!state.areControlsVisible) {
       state = state.copyWith(areControlsVisible: true);
     }
