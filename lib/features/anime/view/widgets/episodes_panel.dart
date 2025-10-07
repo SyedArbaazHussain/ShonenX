@@ -190,7 +190,7 @@ class _EpisodesPanelState extends ConsumerState<EpisodesPanel> {
                 return EpisodeTile(
                   isFiller: episode.isFiller == true,
                   episodeNumber: episode.number.toString(),
-                  episodeTitle: episode.title ?? 'Episode ${episode.number}',
+                  episodeTitle: (episode.title != null && episode.title!.isNotEmpty) ? episode.title!: 'Episode ${episode.number}',
                   isSelected: isSelected,
                   onTap: () => episodeNotifier.changeEpisode(actualIndex),
                 );

@@ -155,7 +155,7 @@ class _CloudstreamControlsState extends ConsumerState<CloudstreamControls> {
           ),
         ),
 
-        // /// Bottom Controls
+        /// Bottom Controls
         AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           transform:

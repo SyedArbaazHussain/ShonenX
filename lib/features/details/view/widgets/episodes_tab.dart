@@ -210,7 +210,7 @@ class _EpisodesTabState extends ConsumerState<EpisodesTab>
               child: Text('${index + 1}',
                   style: const TextStyle(color: Colors.white)),
             ),
-            title: Text(ep.title ?? 'Episode ${index + 1}'),
+            title: Text((ep.title != null && ep.title!.isNotEmpty) ? ep.title!: 'Episode ${ep.number}'),
             subtitle: ep.isFiller == null ? Text('FILLER') : null,
           );
         },

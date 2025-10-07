@@ -54,6 +54,8 @@ app.*.map.json
 fixer.js
 read.js
 
+.vscode/
+
 # env
 .env
 

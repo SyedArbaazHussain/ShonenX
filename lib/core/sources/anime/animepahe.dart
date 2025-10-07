@@ -43,6 +43,7 @@ class AnimePaheProvider extends AnimeProvider {
         episodes: (data['episodes'] as List<dynamic>)
             .map(
               (episode) => EpisodeDataModel(
+                isFiller: false,
                 id: episode['id'],
                 number: episode['number'] as int,
                 title: episode['title'],
